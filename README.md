@@ -15,7 +15,7 @@ UnitOfWorkPlus is a **fully automated** and **dependency injection (DI) friendly
 ## 📌 1️⃣ Installation
 1. Add `UnitOfWorkPlus` package to your project:
    ```sh
-   dotnet add package UnitOfWorkPlus
+   dotnet add package TeymurDevv.UnitOfWorkPlus
    ```
 
 ---
