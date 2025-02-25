@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageId>TeymurDevv.UnitOfWorkPlus</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>TeymurDevv</Authors>
+        <Company>TeymurDevv</Company>
+        <Description>A lightweight, generic Unit of Work and Repository pattern for Entity Framework Core.</Description>
+        <PackageTags>UnitOfWork Repository Pattern EFCore .NET</PackageTags>
+        <RepositoryUrl>https://github.com/your-repo-url</RepositoryUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/your-repo-url</PackageProjectUrl>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="7.0.0" />
+    </ItemGroup>
+
+</Project>
