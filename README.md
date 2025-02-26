@@ -1,39 +1,66 @@
-# UnitOfWorkPlus - Usage Guide
+# TeymurDevv.UnitOfWorkPlus - Usage Guide
 
-## 📌 Introduction
-UnitOfWorkPlus is a **fully automated** and **dependency injection (DI) friendly** implementation of the **Unit of Work + Repository Pattern**. It allows you to **manage repositories dynamically** without manually registering them.
+## Introduction
+**TeymurDevv.UnitOfWorkPlus** is a powerful .NET package that provides an automated **Unit of Work** and **Repository Pattern** implementation. This package allows developers to:
 
-## 🚀 Features
-✔ **No manual repository registration required**  
-✔ **Automatic detection of repositories**  
-✔ **Direct repository access via `_unitOfWork.ProductRepository`**  
-✔ **Works seamlessly with Dependency Injection (DI)**  
-✔ **Supports dynamic access using `_unitOfWork["Product"]`**  
+- Define custom repositories **without** manually registering them.
+- Use **IUnitOfWork** to access repositories dynamically as **properties**.
+- Reduce boilerplate code while maintaining a clean and maintainable architecture.
 
----
-
-## 📌 1️⃣ Installation
-1. Add `UnitOfWorkPlus` package to your project:
-   ```sh
-   dotnet add package TeymurDevv.UnitOfWorkPlus
-   ```
+This guide will walk you through the installation, setup, and usage of **TeymurDevv.UnitOfWorkPlus** in your .NET project.
 
 ---
 
-## 📌 2️⃣ Setup in `Program.cs`
-Register **UnitOfWork and DbContext** in **Dependency Injection (DI)**.
+## 📌 Installation
+
+To install the package, run the following command in your .NET project:
+
+```sh
+ dotnet add package TeymurDevv.UnitOfWorkPlus
+```
+
+Or install via NuGet Package Manager in Visual Studio.
+
+---
+
+## 📌 Package Setup
+
+### **1. Define Your DbContext**
+Ensure your project has a `DbContext` to manage database interactions.
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+
+namespace YourProject.Data
+{
+    public class MyDbContext : DbContext
+    {
+        public DbSet<Product> Products { get; set; }
+
+        public MyDbContext(DbContextOptions<MyDbContext> options) : base(options) { }
+    }
+}
+```
+
+---
+
+### **2. Configure the Package in Program.cs**
+
+Register **TeymurDevv.UnitOfWorkPlus** services in `Program.cs`.
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using YourNamespace.Data; // Your ApplicationDbContext
-using TeymurDevv.UnitOfWorkPlus;
+using TeymurDevv.UnitOfWorkPlus.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register UnitOfWork and DbContext
-builder.Services.AddUnitOfWork<ApplicationDbContext>();
+// Register DbContext
+builder.Services.AddDbContext<MyDbContext>(options =>
+    options.UseSqlServer("YourConnectionString"));
+
+// Register UnitOfWork and Repositories
+builder.Services.AddUnitOfWork<MyDbContext>(typeof(MyDbContext).Assembly);
 
 var app = builder.Build();
 app.Run();
@@ -41,80 +68,115 @@ app.Run();
 
 ---
 
-## 📌 3️⃣ Inject `IUnitOfWork` and Use in a Service
-Use `IUnitOfWork` in services to access repositories dynamically.
+## 📌 Implementing Custom Repositories
+
+### **1. Create a Model Class**
+Define an entity class that represents a database table.
 
 ```csharp
-public class ProductService
+using System.ComponentModel.DataAnnotations;
+
+namespace YourProject.Models
 {
-    private readonly IUnitOfWork _unitOfWork;
-
-    public ProductService(IUnitOfWork unitOfWork)
+    public class Product
     {
-        _unitOfWork = unitOfWork;
-    }
-
-    public async Task AddProduct(string name, decimal price)
-    {
-        var product = new Product { Name = name, Price = price };
-        await _unitOfWork.Repository<Product>().Create(product);
-        await _unitOfWork.SaveChangesAsync();
+        [Key]
+        public int Id { get; set; }
+        public string Name { get; set; }
     }
 }
 ```
 
 ---
 
-## 📌 4️⃣ Inject `IUnitOfWork` in a Controller
-Use `IUnitOfWork` in an API controller to perform CRUD operations.
+### **2. Create a Custom Repository**
+Your repository should implement `IRepository<T>` from the package.
 
 ```csharp
-[Route("api/[controller]")]
-[ApiController]
-public class ProductController : ControllerBase
+using YourProject.Models;
+using TeymurDevv.UnitOfWorkPlus.Repositories;
+
+namespace YourProject.Repositories
 {
-    private readonly IUnitOfWork _unitOfWork;
-
-    public ProductController(IUnitOfWork unitOfWork)
+    public interface IProductRepository : IRepository<Product>
     {
-        _unitOfWork = unitOfWork;
+        Task<Product?> GetByNameAsync(string name);
     }
 
-    [HttpPost]
-    public async Task<IActionResult> AddProduct([FromBody] Product product)
+    public class ProductRepository : Repository<Product>, IProductRepository
     {
-        await _unitOfWork.Repository<Product>().Create(product);
-        await _unitOfWork.SaveChangesAsync();
-        return Ok("Product added successfully.");
-    }
+        public ProductRepository(DbContext context) : base(context) { }
 
-    [HttpGet]
-    public async Task<ActionResult<List<Product>>> GetProducts()
-    {
-        return await _unitOfWork.Repository<Product>().GetAll();
+        public async Task<Product?> GetByNameAsync(string name)
+        {
+            return await _dbSet.FirstOrDefaultAsync(p => p.Name == name);
+        }
     }
 }
 ```
 
 ---
 
-## 📌 5️⃣ Dynamic Repository Access
-You can dynamically access repositories by entity name.
+## 📌 Using UnitOfWork in Your Application
+
+### **1. Injecting UnitOfWork in a Controller**
 
 ```csharp
-var productRepo = (IRepository<Product>)_unitOfWork["Product"];
-await productRepo.Create(new Product { Name = "Smartphone", Price = 799.99M });
-await _unitOfWork.SaveChangesAsync();
+using Microsoft.AspNetCore.Mvc;
+using TeymurDevv.UnitOfWorkPlus.UnitOfWork;
+using YourProject.Repositories;
+
+namespace YourProject.Controllers
+{
+    [ApiController]
+    [Route("api/products")]
+    public class ProductController : ControllerBase
+    {
+        private readonly IUnitOfWork _unitOfWork;
+
+        public ProductController(IUnitOfWork unitOfWork)
+        {
+            _unitOfWork = unitOfWork;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetProducts()
+        {
+            var products = await _unitOfWork.GetRepository<IProductRepository>().GetAllAsync();
+            return Ok(products);
+        }
+    }
+}
 ```
 
 ---
 
-## 🎯 Summary
-✔ **Automatic repository detection**  
-✔ **No need for manual repository registration**  
-✔ **Seamless integration with ASP.NET Core**  
-✔ **Direct repository access via `_unitOfWork.Repository<Product>()`**  
-✔ **Dynamic repository access via `_unitOfWork["Product"]`**  
+## 📌 Key Features
+- **Automatic Repository Discovery**: No need to manually register repositories.
+- **Unit of Work Pattern**: Ensures transactions and proper resource management.
+- **Dynamic Repository Access**: Access repositories as properties inside `IUnitOfWork`.
 
-🚀 **Now your UnitOfWork system is fully automated and production-ready!** 🔥
+---
+
+## 📌 Additional Configuration
+### **Enabling Logging for Debugging**
+If you want to log repository activity, configure logging inside `Program.cs`:
+
+```csharp
+builder.Services.AddLogging(logging =>
+{
+    logging.AddConsole();
+});
+```
+
+---
+
+## 📌 Conclusion
+With **TeymurDevv.UnitOfWorkPlus**, developers can manage repositories effortlessly, ensuring a clean and maintainable architecture. By following this guide, you now have:
+
+✅ Automatic **repository** discovery and registration
+✅ Clean **Unit of Work** pattern integration
+✅ **Minimal configuration** needed to get started
+
+🚀 Now you are ready to build scalable applications with **TeymurDevv.UnitOfWorkPlus**! 🚀
 
